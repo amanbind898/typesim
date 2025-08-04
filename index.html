@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Remote Typing Client</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    max-width: 480px;
+    margin: 20px auto;
+    padding: 10px;
+  }
+  textarea {
+    width: 100%;
+    height: 140px;
+    font-size: 16px;
+    padding: 10px;
+  }
+  .buttons {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  button {
+    flex: 1 1 100px;
+    padding: 10px;
+    font-size: 16px;
+  }
+  #status {
+    margin-top: 12px;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+  <h2>Remote Typing Client</h2>
+  <textarea id="inputText" placeholder="Type your text here..."></textarea>
+  <div class="buttons">
+    <button onclick="sendText()">Send Text</button>
+    <button onclick="sendCmd('ENTER')">Enter</button>
+    <button onclick="sendCmd('TAB')">Tab</button>
+    <button onclick="sendCmd('BACKSPACE')">Backspace</button>
+    <button onclick="sendCmd('SPACE')">Space</button>
+    <button onclick="sendCmd('CLEAR')">Clear All</button>
+    <button onclick="sendCmd('CTRL')">Ctrl</button>
+    <button onclick="sendCmd('ALT')">Alt</button>
+    <button onclick="sendCmd('SHIFT')">Shift</button>
+    <button onclick="sendCmd('ESC')">Esc</button>
+    <button onclick="sendCmd('WIN')">Windows</button>
+    <button onclick="sendCmd('DELETE')">Delete</button>
+  </div>
+  <div id="status">Disconnected</div>
+
+<script>
+  let socket;
+  let statusEl = document.getElementById('status');
+  let textArea = document.getElementById('inputText');
+
+  function connect() {
+    const serverUrl = prompt("Enter WebSocket Server URL", "ws://192.168.0.101:8765");
+    if (!serverUrl) return;
+    socket = new WebSocket(serverUrl.trim());
+
+    socket.onopen = () => {
+      statusEl.textContent = "Connected";
+      statusEl.style.color = "green";
+    };
+    socket.onerror = e => {
+      statusEl.textContent = "Connection error";
+      statusEl.style.color = "red";
+    };
+    socket.onclose = e => {
+      statusEl.textContent = "Disconnected";
+      statusEl.style.color = "gray";
+      setTimeout(connect, 5000); // auto-reconnect after 5s
+    };
+  }
+
+  function sendText() {
+    let text = textArea.value;
+    if (!text) return alert("Please enter some text.");
+    socket.send("__TEXT__" + text);
+    textArea.value = "";
+  }
+
+  function sendCmd(cmd) {
+    socket.send("__CMD__" + cmd);
+  }
+
+  // Real-time key presses (send only simple printable characters)
+  textArea.addEventListener('keydown', e => {
+    if (e.key.length === 1) {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send("__PRESS__" + e.key.toUpperCase());
+      }
+    } else if (["Backspace","Enter","Tab","Escape","Delete"].includes(e.key)) {
+      // Send special keys as commands on keydown
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send("__CMD__" + e.key.toUpperCase());
+      }
+    }
+  });
+
+  connect();
+</script>
+</body>
+</html>
